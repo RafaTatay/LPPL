@@ -34,39 +34,45 @@ extern int yylineno;
 programa      :    listDecla
               ;
 
-listDecla     :     decla
-              |     listDecla decla        
+listDecla     : decla {$$ = $1;} 
+              | listDecla decla {$$ = $1 + $2;}  /*PREGUNTAR*/      
               ;
 
-decla         :      declaVar
-              |      declaFunc       
+decla         : declaVar { $$ = $1;} /*PREGUNTAR*/ 
+              | declaFunc{ $$ = $1;}        
               ;
 
-declaVar      :      tipoSimp ID_ PUNTOCOMA_
-		      {
-		      if(!insTdS($2, VARIABLE, $1, niv, dvar, -1))
-		      yyerror("Ya existe una variable con el mismo identificador.");
-		      else
-		      dvar += TALLA_TIPO_SIMPLE;
-		      }
-              |      tipoSimp ID_ ASIGNAR_ const  PUNTOCOMA_
-              |      tipoSimp ID_ CORCHETE1_ CTE_ CORCHETE2_ PUNTOCOMA_       
+declaVar      : tipoSimp ID_ PUNTOCOMA_
+              {
+                if(!insTdS($2, VARIABLE, $1, niv, dvar, -1)) /*-1 porque el etipo es simple*/
+                yyerror("Ya existe una variable con el mismo identificador.");
+                else
+                dvar += TALLA_TIPO_SIMPLE;
+              }
+              | tipoSimp ID_ ASIGNAR_ const  PUNTOCOMA_
+              {
+                if((!insTdS($2, VARIABLE, $1, niv, dvar, -1) && ($1 != $4))
+                  yyerror("Ya existe una variable con el mismo identificador.");
+              } 
+                dvar += $4 * TALLA_TIPO_SIMPLE;
+
+              | tipoSimp ID_ CORCHETE1_ CTE_ CORCHETE2_ PUNTOCOMA_        
               ;
 
-const         :      CTE_ {$$ = T_ ENTERO;}                              
-              |      TRUE_ {$$ = T_LOGICO;}
-              |      FALSE_ {$$ = T_LOGICO;}
+const         : CTE_ {$$ = T_ ENTERO;}                              
+              | TRUE_ {$$ = T_LOGICO;}
+              | FALSE_ {$$ = T_LOGICO;}
               ;
 
-tipoSimp      :      INT_ {$$ = T_ENTERO;}
-              |      BOOL_ {$$ = T_LOGICO;}
+tipoSimp      : INT_ {$$ = T_ENTERO;}
+              | BOOL_ {$$ = T_LOGICO;}
               ;
 
-declaFunc     :      tipoSimp ID_ PARENTESIS1_ paramForm PARENTESIS2_ bloque
+declaFunc     : tipoSimp ID_ PARENTESIS1_ paramForm PARENTESIS2_ bloque
               ;
               
 paramForm     :      
-              |      listParamForm     
+              | listParamForm     
               ;
 
 listParamForm :      tipoSimp ID_
