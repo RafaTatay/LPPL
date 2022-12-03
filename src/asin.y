@@ -43,14 +43,24 @@ decla         :      declaVar
               ;
 
 declaVar      :      tipoSimp ID_ PUNTOCOMA_
-		      {
-		      if(!insTdS($2, VARIABLE, $1, niv, dvar, -1))
-		      yyerror("Ya existe una variable con el mismo identificador.");
-		      else
-		      dvar += TALLA_TIPO_SIMPLE;
-		      }
+		                {
+		                    if(!insTdS($2, VARIABLE, $1, niv, dvar, -1))
+		                        yyerror("Ya existe una variable con el mismo identificador.");
+		                    else
+		                        dvar += TALLA_TIPO_SIMPLE;
+		                }
               |      tipoSimp ID_ ASIGNAR_ const  PUNTOCOMA_
-              |      tipoSimp ID_ CORCHETE1_ CTE_ CORCHETE2_ PUNTOCOMA_       
+              |      tipoSimp ID_ CORCHETE1_ CTE_ CORCHETE2_ PUNTOCOMA_   
+                     {    int numelem = $4;
+                          if ($4 <= 0) {
+                             yyerror("Talla inapropiada del array");
+                             numelem = 0;
+                          }        
+                          int refe = insTdA($1, numelem);
+                          if ( ! insTdS($2, VARIABLE, T_ARRAY, niv, dvar, refe) )
+                             yyerror ("Identificador repetido");
+                          else dvar += numelem * TALLA_TIPO_SIMPLE;
+                     }    
               ;
 
 const         :      CTE_ {$$ = T_ ENTERO;}                              
