@@ -107,10 +107,16 @@ instEntSal    : READ_ PARENTESIS1_ ID_ PARENTESIS2_ PUNTOCOMA_
                 }
               ;
 
-instSelec     :      IF_ PARENTESIS1_ expre PARENTESIS2_ inst ELSE_ inst
+instSelec     : IF_ PARENTESIS1_ expre PARENTESIS2_ inst ELSE_ inst
+                {
+                  if($3.tipo != T_ERROR && $3.tipo != T_LOGICO) { yyerror(E_IF_LOGICAL);}
+                }
               ;
 
-instIter      :      FOR_ PARENTESIS1_ expreOp PUNTOCOMA_ expre PUNTOCOMA_ expreOp PARENTESIS2_ inst
+instIter      : FOR_ PARENTESIS1_ expreOp PUNTOCOMA_ expre PUNTOCOMA_ expreOp PARENTESIS2_ inst
+                {
+                  if($5.tipo != T_ERROR && $5.tipo != T_LOGICO) { yyerror(E_FOR_LOGICAL);}
+                }
               ;
 
 expreOp       : {$$ = T_VACIO;}
