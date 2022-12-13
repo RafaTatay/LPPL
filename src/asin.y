@@ -231,41 +231,41 @@ expreSufi     :      const {$$ = $1;}
               { 
                   SIMB sim = obtTdS($1); 
                   $$ = T_ERROR;
-		    if(sim.t == T_ERROR) {yyerror("Objeto no declarado");}
-		    else{$$ = sim.t;} 
+		              if(sim.t == T_ERROR) {yyerror("Objeto no declarado");}
+		              else{$$ = sim.t;} 
               } 
               |      ID_ CORCHETE1_ expre CORCHETE2_
               { 
                   SIMB sim = obtTdS($1); 
                   $$ = T_ERROR;
-		    if(sim.t == T_ERROR) {yyerror("Objeto no declarado");}
-		    else{
+		              if(sim.t == T_ERROR) {yyerror("Objeto no declarado");}
+		              else{
                       if(sim.t != T_ARRAY){
-		           yyerror("ID debe ser de tipo array");
-			    }else{
-				if ($3 != T_ENTERO ) {yyerror("Indice no entero");}
-				else {
-					DIM dim = obtTdA(sim.ref);
-					if($3 < 0 || $3 > dim.nelem){
-					    yyerror("Indice fuera de rango.");
-					}else{ $$ = dim.telem;}
-					}
-				}
-			}
+		                      yyerror("ID debe ser de tipo array");
+			                }else{
+				                  if ($3 != T_ENTERO ) {yyerror("Indice no entero");}
+				                  else {
+					                    DIM dim = obtTdA(sim.ref);
+					                    if($3 < 0 || $3 > dim.nelem){
+					                        yyerror("Indice fuera de rango.");
+                     					}else{ $$ = dim.telem;}
+				                  	  }
+		                   		 }
+	                    }
                    
               } 
               |      ID_ PARENTESIS1_ paramAct PARENTESIS2_   
               { 
                   SIMB sim = obtTdS($1); 
                   $$ = T_ERROR;
-		    if(sim.t == T_ERROR) {yyerror("Objeto no declarado");}
-		    else{
+		              if(sim.t == T_ERROR) {yyerror("Objeto no declarado");}
+		              else{
                      INF inf = obtTdD(sim.ref);
-			if (inf.tipo == T_ERROR) { 
-				yyerror("No se encuentra la función"); 
-			} else {
-				$$ = inf.tipo;
-			}
+			               if (inf.tipo == T_ERROR) { 
+				                 yyerror("No se encuentra la función"); 
+			               } else {
+				                 $$ = inf.tipo;
+			               }
                   } 
               }
               ;
