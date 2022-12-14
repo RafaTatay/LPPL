@@ -10,6 +10,22 @@
 #define TRUE  1
 #define FALSE 0
 
+#define T_NOT 0
+#define T_MAS 1
+#define T_MENOS 2
+#define T_POR 3
+#define T_DIV 4
+#define T_INCR 5
+#define T_DECR 6
+#define T_MAYOR 7
+#define T_MENOR 8
+#define T_MAYORIG 9
+#define T_MENORIG 10
+#define T_IGUAL 11
+#define T_NOTIGUAL 12
+#define T_OR 13
+#define T_AND 14
+
 #define TALLA_TIPO_SIMPLE 1 /* Talla asociada a los tipos simples */
 #define TALLA_SEGENLACES 2 /* Talla del segmento de Enlaces de Control */
 

@@ -453,31 +453,31 @@ listParamAct  :      expre
               |      expre COMA_ listParamAct
               ;
 
-opLogic       :      AND_
-              |      OR_
+opLogic       :      AND_ {$$ = T_AND;}
+              |      OR_ {$$ = T_OR;}
               ;
 
-opIgual       :      IGUAL_
-              |      NOTIGUAL_
+opIgual       :      IGUAL_ {$$ = T_IGUAL;}
+              |      NOTIGUAL_ {$$ = T_NOTIGUAL;}
               ;
 
-opRel         :      MAYOR_
-              |      MENOR_
-              |      MAYORIG_
-              |      MENORIG_
+opRel         :      MAYOR_ {$$ = T_MAYOR;}
+              |      MENOR_ {$$ = T_MENOR;}
+              |      MAYORIG_ {$$ = T_MAYORIG;}
+              |      MENORIG_ {$$ = T_MENORIG;}
               ;
 
-opAd          :      MAS_
-              |      MENOS_
+opAd          :      MAS_ {$$ = T_MAS;}
+              |      MENOS_ {$$ = T_MENOS;}
               ;
 
-opMul         :      POR_
-              |      DIV_
+opMul         :      POR_ {$$ = T_POR;}
+              |      DIV_ {$$ = T_DIV;}
               ;
 
-opUna         :      MAS_
-              |      MENOS_
-              |      NOT_ 
+opUna         :      MAS_ {$$ = T_MAS;}
+              |      MENOS_ {$$ = T_MENOS;}
+              |      NOT_  {$$ = T_NOT;}
               ;
 
 
