@@ -176,37 +176,101 @@ instExpre     :      expre PUNTOCOMA_
               |      PUNTOCOMA_
               ;
 
-instEntSal    :      READ_ PARENTESIS1_ ID_ PARENTESIS2_ PUNTOCOMA_
-              |      PRINT_ PARENTESIS1_ expre PARENTESIS2_ PUNTOCOMA_
+instEntSal    : READ_ PARENTESIS1_ ID_ PARENTESIS2_ PUNTOCOMA_
+                {
+                  SIMB sim = obtTdS($3);
+                  if(sim.t == T_ERROR){ yyerror(E_UNDECLARED);}
+                  else if(sim.y != T_ENTERO){ yyerror("Entrada Read debe ser entero");}
+                }
+              | PRINT_ PARENTESIS1_ expre PARENTESIS2_ PUNTOCOMA_
+                {
+                  if($3 != T_ENTERO){ yyerror("Entrada Print debe ser entero");}
+                }
               ;
 
-instSelec     :      IF_ PARENTESIS1_ expre PARENTESIS2_ inst ELSE_ inst
+instSelec     : IF_ PARENTESIS1_ expre PARENTESIS2_ inst ELSE_ inst
+                {
+                  if($3.tipo != T_ERROR && $3.tipo != T_LOGICO) { yyerror(E_IF_LOGICAL);}
+                }
               ;
 
-instIter      :      FOR_ PARENTESIS1_ expreOp PUNTOCOMA_ expre PUNTOCOMA_ expreOp PARENTESIS2_ inst
+instIter      : FOR_ PARENTESIS1_ expreOp PUNTOCOMA_ expre PUNTOCOMA_ expreOp PARENTESIS2_ inst
+                {
+                  if($5.tipo != T_ERROR && $5.tipo != T_LOGICO) { yyerror(E_FOR_LOGICAL);}
+                }
               ;
 
-expreOp       :
-              |      expre
+expreOp       : {$$ = T_VACIO;}
+              | expre {$$ = $1;}
               ;
 
-expre         :      expreLogic
-              |      ID_ ASIGNAR_ expre
-              |      ID_ CORCHETE1_ expre CORCHETE2_ ASIGNAR_ expre
+expre         : expreLogic {$$ = $1}
+              | ID_ ASIGNAR_ expre
+                {
+                  SIMB sim = obtTdS($1);
+                  $$ = T_ERROR;
+                  if ($3 != T_ERROR){
+                    if(sim.t == T_ERROR){ yyerror(E_UNDECLARED);}
+                    else if (sim.t == T_ARRAY){ yyerror(E_ARRAY_WO_INDEX);}
+                    else if (sim.t != $3){yyerror(E_TYPES_ASIGNACION);}
+                    else{ $$ = $3;}
+                  }
+                }
+              | ID_ CORCHETE1_ expre CORCHETE2_ ASIGNAR_ expre
+                {
+                  SIMB sim = obtTdS($1);
+                  $$ = T_ERROR;
+                  if($3 != T_ERROR && $6 != T_ERROR){
+                    if(sim.t == T_ERROR){ yyerror(E_UNDECLARED);}
+                    else if(sim.t != T_ARRAY){ yyerror(E_VAR_WITH_INDEX);}
+                    else if ($3 != T_ENTERO){ yyerror(E_ARRAY_INDEX_TYPE);}
+                    else{
+                      DIM dim = obtTdA(sim.ref);
+                      if(dim.telem != T_ERROR){
+                        if(dim.telem != $6.tipo){yyerror(E_TYPES_ASIGNACION);}
+                        else{ $$ = $3.tipo;}
+                      }
+                    }
+                  }
+                }
               ;
 
-expreLogic    :      expreIgual
-              |      expreLogic opLogic expreIgual
+expreLogic    : expreIgual {$$ = $1}
+              | expreLogic opLogic expreIgual
+                {
+                  $$ = T_ERROR
+                  if($1 != T_ERROR && $3 != T_ERROR){
+                    if($1 != $3){ yyerror(E_TYPES_LOGICA);}
+                    else if($1 != T_LOGICO){ yyerror("NO es booleana la expresion");}
+                    else{ $$ = T_LOGICO;}
+                  }
+                }
               ;
 
-expreIgual    :      expreRel
-              |      expreIgual opIgual expreRel
+expreIgual    : expreRel {$$ = $1}
+              | expreIgual opIgual expreRel
+               {
+                  $$ = T_ERROR
+                  if($1 != T_ERROR && $3 != T_ERROR){
+                    if($1 != $3){ yyerror(E_TYPES_MISMATCH);}
+                    else if($1 != T_LOGICO){ yyerror("NO es booleana la expresion");}
+                    else{ $$ = T_LOGICO;}
+                  }
+                }
               ;
 
-expreRel      :      expreAd
-              |      expreRel opRel expreAd
+expreRel      : expreAd {$$ = $1}
+              | expreRel opRel expreAd
+               {
+                  $$ = T_ERROR
+                  if($1 != T_ERROR && $3 != T_ERROR){
+                    if($1 != $3){ yyerror(E_TYPES_MISMATCH);}
+                    else if($1 != T_LOGICO){ yyerror("OpRel solo acepta args lógicos");}
+                    else{ $$ = T_LOGICO;}
+                  }
+                }
               ;
-
+----------
 expreAd       :      expreMul
               |      expreAd opAd expreMul
               ;
