@@ -11,6 +11,7 @@ extern int yylineno;
 %union {
   int   cent;  /* Para el terminal "cte" entera: creo un atr que es un entero             */
   char *ident; /* Nombre del identificador */
+  Lista lista;
 
 }
 
@@ -30,13 +31,31 @@ extern int yylineno;
 %token <cent> CTE_
 %token <*ident> ID_
 %type <cent> const tipoSimp listDecla decla declaVar declaFunc declaVarLocal
-%type <lista> paramForm listParamForm
+%type <lista> paramForm listParamForm 
 %%
-programa      :    listDecla
+programa      :     {
+		              niv = 0;   /* Nivel de anidamiento "global" o "local" */
+                            dvar = 0;  /* Desplazamiento en el Segmento de Variables */
+                            cargaContexto(niv);
+		       }
+                    listDecla
+                    {
+		              if(verTdS)
+		                     mostrarTdS(); 
+                            if($2 == 0)
+		                     yyerror("no hay main en el programa");
+                            else if ($2 >= 1)
+                                   yyerror("el programa tiene más de un main");
+                            
+                            descargaContexto(niv);   
+		       }
               ;
 
 listDecla     :     decla
-              |     listDecla decla        
+              |     listDecla decla   
+                     {
+		              $$ = $1 + $2;    
+		       }    
               ;
 
 decla         :      declaVar
@@ -45,13 +64,32 @@ decla         :      declaVar
 
 declaVar      :      tipoSimp ID_ PUNTOCOMA_
 		      {
-		      if(!insTdS($2, VARIABLE, $1, niv, dvar, -1))
-		      yyerror("Ya existe una variable con el mismo identificador.");
-		      else
-		      dvar += TALLA_TIPO_SIMPLE;
-		      }
+		              if(!insTdS($2, VARIABLE, $1, niv, dvar, -1))
+		                     yyerror("Ya existe una variable con el mismo identificador.");
+		              else
+		                     dvar += TALLA_TIPO_SIMPLE;
+		       }
               |      tipoSimp ID_ ASIGNAR_ const  PUNTOCOMA_
-              |      tipoSimp ID_ CORCHETE1_ CTE_ CORCHETE2_ PUNTOCOMA_       
+                     {
+		              if(!insTdS($2, VARIABLE, $1, niv, dvar, -1))
+		                     yyerror("Ya existe una variable con el mismo identificador.");
+                            else if (! ((($1 == T_ENTERO) && ($4 == T_ENTERO)) || ($1 == T_LOGICO) && ($4 == T_LOGICO))) )
+                                   yyerror("Error de tipos en la declaracion de variables");
+		              else
+		                     dvar += TALLA_TIPO_SIMPLE;
+		       }
+              |      tipoSimp ID_ CORCHETE1_ CTE_ CORCHETE2_ PUNTOCOMA_    
+                     {    
+                            int numelem = $4;
+                            if ($4 <= 0) {
+                                   yyerror("Talla inapropiada del array");
+                                   numelem = 0;
+                            }        
+                            int refe = insTdA($1, numelem);
+                            if ( ! insTdS($2, VARIABLE, T_ARRAY, niv, dvar, refe) )
+                                   yyerror ("Identificador repetido");
+                            else dvar += numelem * TALLA_TIPO_SIMPLE;
+                     }
               ;
 
 const         :      CTE_ {$$ = T_ ENTERO;}                              
@@ -63,22 +101,70 @@ tipoSimp      :      INT_ {$$ = T_ENTERO;}
               |      BOOL_ {$$ = T_LOGICO;}
               ;
 
-declaFunc     :      tipoSimp ID_ PARENTESIS1_ paramForm PARENTESIS2_ bloque
+declaFunc     :      tipoSimp ID_ 
+                     { /* Gestion del contexto y guardar ‘‘dvar’’ */ 
+                            niv++;
+                            cargaContexto(niv);
+                            $<cent>$ = dvar;
+                            dvar = 0;
+                     }
+                     PARENTESIS1_ paramForm PARENTESIS2_ 
+                     { /* Insertar informacion de la funcion en la TdS */ 
+
+                            if(!insTdS($2, FUNCION, $1, niv-1, -1, $5.ref))
+		                     yyerror("Ya existe una funcion con el mismo identificador.");
+                             
+                     }
+                     bloque
+                     {/* Mostrar la informacion de la funcion en la TdS */
+                            if(strcmp($2, "main\0") == 0){   /* los dominios coinciden */
+                                   $$ = 1;
+                            }
+                            else { $$ = 0;} 
+                            if(verTdS)
+		                     mostrarTdS();
+                      /* Gestion del contexto y recuperar ‘‘dvar’’ */
+                            descargaContexto(niv); 
+			       niv--; 
+			       dvar = $<cent>2;
+			}
               ;
               
-paramForm     :      
-              |      listParamForm     
+paramForm     :      {$$.ref = insTdD(-1, T_VACIO);    $$.talla = 0;}  
+              |      listParamForm  
+                     {$$.ref = $1.ref;    $$.talla = $1.talla;}   
               ;
 
 listParamForm :      tipoSimp ID_
+                     {
+                            $$.ref = insTdD(-1, $1);   
+                            $$.talla = TALLA_SEGENLACES + TALLA_TIPO_SIMPLE;
+                            if ( ! insTdS($2, PARAMETRO, $1, niv, -$$.talla, -1) )     /* Los parametros se ordenan en orden inverso */
+                                   yyerror ("La función ya tiene un parámetro con el mismo identificador");
+                     }
               |      tipoSimp ID_ COMA_ listParamForm
+                     {
+                            $$.ref = insTdD($4.ref, $1);   
+                            $$.talla = TALLA_TIPO_SIMPLE + $4.talla;
+                            if ( ! insTdS($2, PARAMETRO, $1, niv, -$$.talla, -1) )
+                                   yyerror ("La función ya tiene un parámetro con el mismo identificador");
+                     }
               ;
 
 bloque        :      LLAVE1_ declaVarLocal listInst RETURN_ expre PUNTOCOMA_ LLAVE2_
+                     {
+                            INF inf = obtTdD(-1);
+			       if (inf.tipo != T_ERROR) {
+				       if (inf.tipo != $5.tipo) {
+					       yyerror("Incompatibilidad de tipos en el bloque de la función"); 
+				       }     
+			       }
+                     }
               ;
 
-declaVarLocal :      
+declaVarLocal :      {$$ = T_ VACIO;}
               |      declaVarLocal declaVar
+                     {$$ = $1 + $2;}
               ;
 ----------------------------------------------
 listInst      :
