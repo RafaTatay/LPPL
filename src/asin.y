@@ -31,7 +31,7 @@ extern int yylineno;
 %token <cent> CTE_
 %token <*ident> ID_
 %type <cent> const tipoSimp listDecla decla declaVar declaFunc declaVarLocal
-%type <lista> paramForm listParamForm
+%type <lista> paramForm listParamForm 
 %%
 programa      :     {
 		              niv = 0;   /* Nivel de anidamiento "global" o "local" */
@@ -42,6 +42,11 @@ programa      :     {
                     {
 		              if(verTdS)
 		                     mostrarTdS(); 
+                            if($2 == 0)
+		                     yyerror("no hay main en el programa");
+                            else if ($2 >= 1)
+                                   yyerror("el programa tiene más de un main");
+                            
                             descargaContexto(niv);   
 		       }
               ;
@@ -108,12 +113,14 @@ declaFunc     :      tipoSimp ID_
 
                             if(!insTdS($2, FUNCION, $1, niv-1, -1, $5.ref))
 		                     yyerror("Ya existe una funcion con el mismo identificador.");
-                            if(strcmp($2, "main\0") == 1){   /* los dominios coinciden */
-                                   $$ = 0;
-                            } 
+                             
                      }
                      bloque
                      {/* Mostrar la informacion de la funcion en la TdS */
+                            if(strcmp($2, "main\0") == 0){   /* los dominios coinciden */
+                                   $$ = 1;
+                            }
+                            else { $$ = 0;} 
                             if(verTdS)
 		                     mostrarTdS();
                       /* Gestion del contexto y recuperar ‘‘dvar’’ */
@@ -125,7 +132,7 @@ declaFunc     :      tipoSimp ID_
               
 paramForm     :      {$$.ref = insTdD(-1, T_VACIO);    $$.talla = 0;}  
               |      listParamForm  
-                     {$$.ref = $2.ref;    $$.talla = $2.talla;}   
+                     {$$.ref = $1.ref;    $$.talla = $1.talla;}   
               ;
 
 listParamForm :      tipoSimp ID_
