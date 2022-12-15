@@ -161,7 +161,7 @@ bloque        :      LLAVE1_ declaVarLocal listInst RETURN_ expre PUNTOCOMA_ LLA
                             INF inf = obtTdD(-1);
 			       if (inf.tipo != T_ERROR) {
 				       if (inf.tipo != $5) {
-					       yyerror("Incompatibilidad de tipos en el bloque de la función"); 
+					       yyerror("Error de tipos en el return"); 
 				       }     
 			       }
                      }
@@ -205,14 +205,25 @@ instSelec     :      IF_ PARENTESIS1_ expre PARENTESIS2_ inst ELSE_ inst
                      }
               ;
 
-instIter      :      FOR_ PARENTESIS1_ expreOp PUNTOCOMA_ expre PUNTOCOMA_ expreOp PARENTESIS2_ inst
+instIter      :      FOR_ PARENTESIS1_ expreOp PUNTOCOMA_ expre PUNTOCOMA_ expreOp PARENTESIS2_ 
                      {
-                            if(($5 != T_ERROR && $5 != T_LOGICO)) {
-                                   yyerror("expresion debe ser logica");
-                            }else if($3 != T_VACIO) { yyerror("No es de tipo simple");}
-                            else if($7 != T_VACIO ) { yyerror("No es de tipo simple");}    
+                            // if(($5 != T_ERROR && $5 != T_LOGICO)) {
+                            //        yyerror("expresion debe ser logica");
+                            // }else if($3 != T_VACIO && $3 != T_ERROR) { yyerror("No es de tipo simple");}
+                            // else if($7 != T_VACIO && $7 != T_ERROR) { yyerror("No es de tipo simple");}    
+                            
+                            if ($3 != T_ERROR && $5 != T_ERROR && $7 != T_ERROR){
+                                   if ($3 != T_VACIO && $3 != T_ENTERO && $3 != T_LOGICO) {
+                                          yyerror("Las expresiones opcionales han de ser de tipo simple. ");
+                                   }
+                                   else if ($7 != T_VACIO && $7 != T_ENTERO && $7 != T_LOGICO) {
+                                          yyerror("Las expresiones opcionales han de ser de tipo simple. ");
+                                   } 
+                                   else if ($5!=T_LOGICO) yyerror("La condicion no es de tipo logico. ");
+                            } 
                      }
-                     
+                     inst{}
+               
               ;
 
 expreOp       :      {$$ = T_VACIO;}
