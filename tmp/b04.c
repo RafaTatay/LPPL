@@ -5,7 +5,7 @@ bool X[20];
 bool main (int A, bool A)  // Identificador de parametro repetido
 {
   bool A;                  // Identificador de variable repetido
-  return sexoo;               // Error de tipos en el "return" 
+  return 14;               // Error de tipos en el "return" 
 }
 
 int Y (int A, bool B)   
