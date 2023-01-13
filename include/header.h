@@ -13,18 +13,35 @@
 #define TALLA_TIPO_SIMPLE 1 /* Talla asociada a los tipos simples */
 #define TALLA_SEGENLACES 2 /* Talla del segmento de Enlaces de Control */
 
+#define OP_NOT 0
+#define OP_MAS 1
+#define OP_MENOS 2
+#define OP_POR 3
+#define OP_DIV 4
+#define OP_INCR 5
+#define OP_DECR 6
+#define OP_MAYOR 7
+#define OP_MENOR 8
+#define OP_MAYORIG 9
+#define OP_MENORIG 10
+#define OP_IGUAL 11
+#define OP_NOTIGUAL 12
+#define OP_OR 13
+#define OP_AND 14
+
 typedef struct lista{
     int ref;
     int talla;
 } Lista;
+
+
 
 /************************ Variables externas definidas en Programa Principal */
 extern int verTdS; /* Flag para saber si mostrar la TdS */
 /***************************** Variables externas definidas en las librer ́ıas */
 extern int dvar; /* Desplazamiento en el Segmento de Variables */
 extern int niv; /* Nivel de anidamiento "global" o "local" */
-/
-/
+
 /************************************* Variables externas definidas en el AL */
 extern int yylex();
 extern int yyparse();
