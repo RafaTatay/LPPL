@@ -126,7 +126,7 @@ declaFunc     :      tipoSimp ID_
                       /* Gestion del contexto y recuperar ‘‘dvar’’ */
                             descargaContexto(niv); 
 			       niv--; 
-			       dvar = $<cent>2;
+			       dvar = $<cent>3;
 			}
               ;
               
