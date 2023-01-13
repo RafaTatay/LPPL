@@ -249,6 +249,7 @@ expre         :      expreLogic  {$$ = $1;}
                             else if (sim.t != $3){yyerror("En la asignacion a una variable simple");}
                             else{ $$ = $3;}
                             }
+                     emite(EASIG, crArgPos(niv, $3.d), crArgNul(), crArgPos(niv, sim.d));
                      }
               |      ID_ CORCHETE1_ expre CORCHETE2_ ASIGNAR_ expre
                      {
@@ -266,7 +267,10 @@ expre         :      expreLogic  {$$ = $1;}
                                           }
                                    }
                             }
+                     emite(EMULT, crArgPos(niv, $3.d), crArgPos(niv, dim.nelem) , crArgPos(niv, $3.d));
+                     emite(EASIG, crArgPos(niv, $6.d), crArgNul(), crArgPos(niv, dim.d));
                      }
+                     
               ;
 
 expreLogic    :      expreIgual  {$$ = $1;}
@@ -279,6 +283,15 @@ expreLogic    :      expreIgual  {$$ = $1;}
                             else{ $$ = T_LOGICO;}
                             }         
                      }
+                     $$.d = creaVarTemp();
+                     if ($2 == EMULT){   /* es un AND */
+                            emite(EMULT, crArgPos(niv, $1.d), crArgPos(niv, $3.d), crArgPos(niv, $$.d));
+                     } else{    /* es un OR */
+                            emite(ESUM, crArgPos(niv, $1.d), crArgPos(niv, $3.d), crArgPos(niv, $$.d));
+                            emite(EMENEQ, crArgPos(niv, $$.d), crArgEnt(1), crArgEtq(si + 2));
+                            emite(EASIG, crArgEnt(1), crArgNul(), crArgPos(niv, $$.d));
+                     } 
+                     
               ;
 
 expreIgual    :      expreRel  {$$ = $1;}
@@ -290,6 +303,10 @@ expreIgual    :      expreRel  {$$ = $1;}
                             else if($1 != T_LOGICO){ yyerror("La expresion de igualdad debe ser booleana");}
                             else{ $$ = T_LOGICO;}
                             }
+                     $$.d = creaVarTemp();
+                     emite(EASIG, crArgEnt(1), crArgNul(), crArgPos(niv, $$.d));
+                     emite($2, crArgPos(niv, $1.d), crArgPos(niv, $3.d), crArgEtq(si + 2));  /*Puede ser == o !=*/
+                     emite(EASIG, crArgEnt(0), crArgNul(), crArgPos(niv, $$.d));
                      }
               ;
 
@@ -302,6 +319,11 @@ expreRel      :      expreAd  {$$ = $1;}
                             else if($1 == T_LOGICO){ yyerror("La expresion relacional debe ser booleana");}
                             else{ $$ = T_LOGICO;}
                      }
+                     $$.d = creaVarTemp();
+                     emite(EASIG, crArgEnt(1), crArgNul(), crArgPos(niv, $$.d));
+                     emite($2, crArgPos(niv, $1.d), crArgPos(niv, $3.d), crArgEtq(si + 2));  /*Puede ser == o !=*/
+                     emite(EASIG, crArgEnt(0), crArgNul(), crArgPos(niv, $$.d));
+                     
                      }
               ;
 
@@ -314,6 +336,8 @@ expreAd       :      expreMul  {$$ = $1;}
                             else if($1 != T_ENTERO){ yyerror("la expresion aditiva debe ser de tipo entero");}
                             else{ $$ = T_ENTERO;}
                      }
+                     $$.d = creaVarTemp();
+                     emite($2, crArgPos(niv, $1.d), crArgPos(niv, $3.d), crArgPos(niv, $$.d));
                      }
               ;
 
