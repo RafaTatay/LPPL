@@ -29,8 +29,8 @@ constante       	{entero}"."?|{entero}?"."{entero}
 identificador  	{letra}({letra}|{digito}|_)*
 
 %%
-{delimitador}  		{ if (verbosidad) ECHO; fprintf(stdout,"%d.- ", yylineno);}
-{comentario}			{ if (verbosidad) ECHO; fprintf(stdout,"%d.- ", yylineno);}
+{delimitador}  		{ if (verbosidad){  ECHO; fprintf(stdout,"%d.- ", yylineno);} }
+{comentario}			{ if (verbosidad){ ECHO; fprintf(stdout,"%d.- ", yylineno);} }
 {blanco} 			{ if (verbosidad) ECHO;}
 "+"				{ retornar(MAS_); }
 "-"				{ retornar(MENOS_); }

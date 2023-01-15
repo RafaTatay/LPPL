@@ -15,7 +15,9 @@ extern int yylineno;
   int   cent;  /* Para el terminal "cte" entera: creo un atr que es un entero             */
   char *ident; /* Nombre del identificador */
   Lista lista;
-
+  Expresion expresion; /*Para guardar tipo y posicion de simbolos no terminales*/
+  Ifelse ifelse; /*Para el ifelse ahcerlo igual que en las transparencias*/
+  Forexpre forexpre; /*Para hace rel for igual que en las transparencias*/
 }
 
 
@@ -33,13 +35,17 @@ extern int yylineno;
 /********/
 %token <cent> CTE_
 %token <ident> ID_
-%type <cent> const tipoSimp listDecla decla declaFunc declaVarLocal declaVar listParamAct paramAct
-%type <cent> expre instEntSal instSelec instIter expreOp expreLogic expreIgual expreRel
+%type <cent> tipoSimp listDecla decla declaFunc declaVarLocal declaVar listParamAct paramAct
+%type <cent> expre instEntSal   expreOp expreLogic expreIgual expreRel
 %type <cent> expreAd expreMul expreUna expreSufi 
 %type <cent> opMul opUna opRel opAd opIgual opLogic 
 %type <lista> paramForm listParamForm 
+%type <expresion> const
+%type <ifelse> instSelec
+%type <forexpre> instIter
 %%
-programa      :     {
+programa      :     {       
+                            si = 0; /* Se refiere a la Siguiente Instrucción*/
 		              niv = 0;   /* Nivel de anidamiento "global" o "local" */
                             dvar = 0;  /* Desplazamiento en el Segmento de Variables */
                             cargaContexto(niv);
@@ -78,10 +84,14 @@ declaVar      :      tipoSimp ID_ PUNTOCOMA_
                      {
 		              if(!insTdS($2, VARIABLE, $1, niv, dvar, -1))
 		                     yyerror("Ya existe una variable con el mismo identificador.");
-                            else if (! (((($1 == T_ENTERO) && ($4 == T_ENTERO))) || (($1 == T_LOGICO) && ($4 == T_LOGICO))))
+                            else if (! (((($1 == T_ENTERO) && ($4.tipo == T_ENTERO))) || (($1 == T_LOGICO) && ($4.tipo == T_LOGICO))))
                                    yyerror("Error de tipos en la inicialización de variables");
 		              else
 		                     dvar += TALLA_TIPO_SIMPLE;
+                            /*No tengo la posicion de ID:Voy a la TdS y usando sim obtengo su posicion*/ 
+                            SIMB sim = obtTdS($2); /* Esto accede a la TdS y obtiene la info de $3 que es ID_ */
+                            emite(EASIG,crArgEnt($4.pos) , crArgNul(),crArgPos(sim.n,sim.d));
+                            /*NOTA: Cuando use sim.d para cargar el nivel usa sim.n */
 		       }
               |      tipoSimp ID_ CORCHETE1_ CTE_ CORCHETE2_ PUNTOCOMA_    
                      {    
@@ -97,9 +107,15 @@ declaVar      :      tipoSimp ID_ PUNTOCOMA_
                      }
               ;
 
-const         :      CTE_ {$$ = T_ENTERO;}                              
-              |      TRUE_ {$$ = T_LOGICO;}
-              |      FALSE_ {$$ = T_LOGICO;}
+const         :      CTE_
+                     /* Para poder acceder a const cuando se hace un crArgEnt, vamos a crear una 
+                     estructura para guardar el tipo(T_ENTERO) y el valor ($$.pos = $1)
+                     {
+                      $$.tipo = T_ENTERO; /*Antes era solo $$ = T_ENTERO-> añadimos expresion a header.h y modificamos type de cent en union*/
+                      $$.pos = $1;
+                     }                              
+              |      TRUE_ {$$.tipo = T_LOGICO; $$.pos = TRUE;}
+              |      FALSE_ {$$.tipo = T_LOGICO; $$.pos = FALSE;}
               ;
 
 tipoSimp      :      INT_ {$$ = T_ENTERO;}
@@ -116,7 +132,9 @@ declaFunc     :      tipoSimp ID_
                      PARENTESIS1_ paramForm PARENTESIS2_ 
                      { /* Insertar informacion de la funcion en la TdS */ 
 
-                            if(!insTdS($2, FUNCION, $1, niv-1, -1, $5.ref))
+                            if(!insTdS($2, FUNCION, $1, niv-1, si, $5.ref)) 
+                            /* Al poner si, nos guardamos la linea de codigo en 
+                                                 la que empieza la función - Se usa en los CALL*/
 		                     yyerror("Ya existe una funcion con el mismo identificador.");
                              
                      }
@@ -158,20 +176,45 @@ listParamForm :      tipoSimp ID_
                      }
               ;
 
-bloque        :      LLAVE1_ declaVarLocal listInst RETURN_ expre
+bloque        :      {
+                     /*********** Cargar los enlaces de control */
+                     emite(PUSHFP, crArgNul(),crArgNul(),crArgNul());
+                     emite(FPTOP, crArgNul(),crArgNul(),crArgNul());
+                     
+                     /*********** Reservar de espacio para variables locales y temporales */
+                     /*Para hacer los que en las transpas ahcen con D.d = creaLans(Omega) hacemos*/
+                     $<cent>$ = creaLans(si); /* D.d = CreaLans(Omega)
+                     emite(INCTOP, crArgNul(), crArgNul(), crArgEnt(-1)); /*-1 correpsonde a el circulo con x que usabamos en teoria */
+                     
+                     }  
+                     
+                     LLAVE1_ declaVarLocal listInst RETURN_ expre
                      {
                             INF inf = obtTdD(-1);
 			       if (inf.tipo != T_ERROR) {
 				       if (inf.tipo != $5) {
 					       yyerror("Error de tipos en el return"); 
-				       }
-                                       
+				       }                                       
 			       }
                             else if( inf.tipo == T_ERROR){
                                    yyerror("En la declaracion de la funcion");
                             } 
                      }
                      PUNTOCOMA_ LLAVE2_ 
+                     {
+                     /****** Completar la reserva para las variables locales y temporales */
+                     completaLans($<cent>1, crArgEnt(dvar));
+                     /****** Guardar el valor de retorno */
+                     int dret = TALLA_SEGENLACES + TALLA_TIPO_SIMPLE + inf.tsp;
+                     emite(EASIG, crArgPos(niv, $6.pos), crArgNul(), crArgPos(niv, -dret)); /* Para obtener el valor del return*/
+                     /****** Liberar el segmento de variables locales y temporales */
+                     emite(TOPFP, crArgNul(), crArgNul(), crArgNul() );
+                     /****** Descargar los enlaces de control */
+                     emite(FPPOP, crArgNul(), crArgNul(), crArgNul() );
+                     /****** Emitir FIN si es ‘‘main’’ y RETURN si no es */
+                     if (strcmp(inf.nom,"main") == 0) { emite(FIN, crArgNul(), crArgNul(), crArgNul()); 
+                     }else { emite(RET, crArgNul(), crArgNul(), crArgNul()); }
+                     } 
               ;
 
 declaVarLocal :      {$$ = T_VACIO;}
@@ -196,41 +239,73 @@ instExpre     :      expre PUNTOCOMA_
 
 instEntSal    :      READ_ PARENTESIS1_ ID_ PARENTESIS2_ PUNTOCOMA_
                      {
-                            SIMB sim = obtTdS($3);
+                            SIMB sim = obtTdS($3); /* Esto accede a la TdS y obtiene la info de $3 que es ID_ */
                             if(sim.t == T_ERROR){ yyerror("No esta declarada");}
                             else if(sim.t != T_ENTERO){ yyerror("El argumento del 'Read' debe ser 'entero'");}
+                            emite(EREAD, crArgNul(), crArgNul(),crArgPos(sim.n, sim.d) );
                      }
               |      PRINT_ PARENTESIS1_ expre PARENTESIS2_ PUNTOCOMA_
                      {
                             if($3 != T_ENTERO){ yyerror("La expresion del 'print' debe ser 'entera'");}
+                            /*Ahora mismo expre solo guarda el tipo, habrá que hacer con expre y todas las expre lo mismo que con const*/
+                            /*Así tednrá tipo y posicion*/
+                            emite(EWRITE, crArgNul(), crArgNul(),crArgPos(niv, $3) ); /*Cambiar expre por expre.pos*/
+                            /*NOTA: CAMBIA TODOS LOS USOS DE EXPRE CON $i por $i.tipo al meterlo como const*/
                      }
               ;
 
 instSelec     :      IF_ PARENTESIS1_ expre PARENTESIS2_
                      {
-                            if($3 != T_ERROR && $3 != T_LOGICO) { yyerror("La expresion del `if' debe ser 'logico'");}
+                            if($3 != T_ERROR && $3.tipo != T_LOGICO) { yyerror("La expresion del `if' debe ser 'logico'");}
+                            /*USamos $<ifelse>$.lf y no $$.lf porque el instSelec (Estrucutra IF)*/
+                            /*aun no se ha termiando de procesar, sol opuedo hacer $$.lf si estuviese al final*/
+                            $<ifelse>$.lf = creaLans(si));
+                            emite(EIGUAL, expresion.pos, crArgEnt(0), crArgEnt(-1));
                      }
-                     inst ELSE_ inst {} 
+                     inst 
+                     {
+                            $<ifelse>$.fin = creaLans(si)); 
+                            emite(GOTOS, crArgNul(),crArgNul(),crArgEnt(-1));
+                            completaLans($<ifelse>$.lf,crArgEtq(si));
+                     } 
+                     ELSE_ inst
+                     {
+                            completaLans($<ifelse>$.fin,crArgEtq(si));
+                     } 
               ;
 
-instIter      :      FOR_ PARENTESIS1_ expreOp PUNTOCOMA_ expre PUNTOCOMA_ expreOp PARENTESIS2_ 
+instIter      :      FOR_ PARENTESIS1_ expreOp PUNTOCOMA_
                      {
-                            // if(($5 != T_ERROR && $5 != T_LOGICO)) {
-                            //        yyerror("expresion debe ser logica");
-                            // }else if($3 != T_VACIO && $3 != T_ERROR) { yyerror("No es de tipo simple");}
-                            // else if($7 != T_VACIO && $7 != T_ERROR) { yyerror("No es de tipo simple");}    
+                            $<forexpre>$.ini = si; /*NOTA: METER COSAS EN MITAD REGLA HACE QUE SEA UN $ más -> cambiar refenrencias anteriores*/
+                            /*$5 ahora sera $6 y $7 sera $9(porque hay 2 por medio) */ 
+                     } 
+                     expre PUNTOCOMA_ 
+                     {
+                            $<forexpre>$.lv = creaLAns(si); 
+                            emite(EIGUAL, expresion.pos, crArgEnt(1), crArgEnt(-1));
+                            $<forexpre>$.lf = creaLAns(si);
+                            emite(GOTOS, crArgNul(),crArgNul(),crArgEnt(-1));
+                            $<forexpre>$.aux = si;
+                     } 
+                     expreOp PARENTESIS2_ 
+                     {
                             
-                            if ($3 != T_ERROR && $5 != T_ERROR && $7 != T_ERROR){
+                            if ($3 != T_ERROR && $6 != T_ERROR && $9 != T_ERROR){
                                    if ($3 != T_VACIO && $3 != T_ENTERO && $3 != T_LOGICO) {
                                           yyerror("Las expresiones opcionales han de ser de tipo simple. ");
                                    }
-                                   else if ($7 != T_VACIO && $7 != T_ENTERO && $7 != T_LOGICO) {
+                                   else if ($9 != T_VACIO && $9 != T_ENTERO && $9 != T_LOGICO) {
                                           yyerror("Las expresiones opcionales han de ser de tipo simple. ");
                                    } 
-                                   else if ($5!=T_LOGICO) yyerror("La condicion del for debe ser de tipo logico. ");
+                                   else if ($6!=T_LOGICO) yyerror("La condicion del for debe ser de tipo logico. ");
                             } 
+                            emite(GOTOS, crArgNul(),crArgNul(),crArgEnt($<forexpre>$.ini));
+                            completaLans($<ifelse>$.lv,crArgEtq(si));
                      }
-                     inst{}
+                     inst{
+                            emite(GOTOS, crArgNul(),crArgNul(),crArgEnt($<forexpre>$.aux));
+                            completaLans($<ifelse>$.lf,crArgEtq(si));
+                     }
                
               ;
 
@@ -351,7 +426,7 @@ expreUna      :      expreSufi  {$$ = $1;}
                      } 
               ;
 
-expreSufi     :      const  {$$ = $1;}
+expreSufi     :      const  {$$ = $1.tipo;}
               |      PARENTESIS1_ expre PARENTESIS2_  {$$ = $2;}
               |      ID_ 
                      { 
