@@ -34,7 +34,24 @@ typedef struct lista{
     int talla;
 } Lista;
 
+typedef struct expresion{ /* PAra poder hacer uso del .d (.pos) que hacemos uso en las transparencias de teoría*/
+    int tipo;
+    int pos;
+} Expresion;
 
+typedef struct ifelse{ /* PAra poder hacer uso del .ini, .fin, .lf que hacemos uso en las transparencias de teoría*/
+    int ini;
+    int fin;
+    int lf;
+} Ifelse;
+
+typedef struct forexpre{ /* Para poder hacer uso del .ini, .fin, .lf, .lv, .aux  que hacemos uso en las transparencias de teoría*/
+    int ini;
+    int fin;
+    int lf;
+    int lv;
+    int aux;
+} Forexpre;
 
 /************************ Variables externas definidas en Programa Principal */
 extern int verTdS; /* Flag para saber si mostrar la TdS */
