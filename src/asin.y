@@ -401,6 +401,8 @@ expreMul      :      expreUna  {$$ = $1;}
                             else if($1 != T_ENTERO){ yyerror("La expresion multiplicativa debe ser de tipo entero");}
                             else{ $$ = T_ENTERO;}
                      }
+                            $$.pos = creaVarTemp();
+                            emite($2, crArgPos(niv, $1.pos), crArgPos(niv, $3.pos), crArgPos(niv, $$.pos));
                      }
               ;
 
@@ -423,18 +425,35 @@ expreUna      :      expreSufi  {$$ = $1;}
                                    }
                             } 
                      }
+                     $$.pos = creaVarTemp();
+                     if ($1 == ESIG) {
+                            emite(EDIF, crArgEnt(1), crArgPos(niv, $2.pos), crArgPos(niv, $$.pos));    
+                     } else {
+                            emite($1, crArgEnt(0), crArgPos(niv, $2.pos), crArgPos(niv, $$.pos));
+                     } 
                      } 
               ;
 
-expreSufi     :      const  {$$ = $1.tipo;}
+expreSufi     :      const  
+                     {
+                     
+                     $$ = $1.tipo;
+                     $$.pos = creaVarTemp();
+                     emite(EASIG, crArgEnt($1.pos), crArgNul(), crArgPos(niv, $$.pos));
+                     
+                     }
               |      PARENTESIS1_ expre PARENTESIS2_  {$$ = $2;}
               |      ID_ 
                      { 
                      SIMB sim = obtTdS($1); 
                      $$ = T_ERROR;
                             if(sim.t == T_ERROR) {yyerror("Objeto no declarado");}
-                            else{$$ = sim.t;} 
-                     }      
+                            else{$$ = sim.t;}
+                             
+                     $$.pos = creaVarTemp();
+                     emite(EASIG, crArgPos(sim.n, sim.d), crArgNul(), crArgPos(niv, $$.pos));
+                     }
+
               |      ID_ CORCHETE1_ expre CORCHETE2_
                      { 
                      SIMB sim = obtTdS($1); 
@@ -485,36 +504,43 @@ paramAct      :     {$$ = insTdD(-1,T_VACIO);}
               ;
 
 listParamAct  :      expre 
-                     //{$$ = insTdD(-1,$1);} 
-              |      expre COMA_ listParamAct
-                     //{$$ = insTdD($3,$1);}
+              {
+                     $$ = insTdD(-1,$1);
+                     emite(EPUSH,crArgNul(),crArgNul(),crArgPos(niv, $1.pos));
+              }
+              |      expre 
+              {
+                     emite(EPUSH,crArgNul(),crArgNul(),crArgPos(niv, $1.pos));
+              }
+              COMA_ listParamAct
+                     {$$ = insTdD($3,$1);}
               ;
 
-opLogic       :      AND_ {$$ = OP_AND;}
-              |      OR_ {$$ = OP_OR;}
+opLogic       :      AND_ {$$ = EMULT;}
+              |      OR_ {$$ = ESUM;}
               ;
 
-opIgual       :      IGUAL_ {$$ = OP_IGUAL;}
-              |      NOTIGUAL_ {$$ = OP_NOTIGUAL;}
+opIgual       :      IGUAL_ {$$ = EIGUAL;}
+              |      NOTIGUAL_ {$$ = EDIST;}
               ;
 
-opRel         :      MAYOR_ {$$ = OP_MAYOR;}
-              |      MENOR_ {$$ = OP_MENOR;}
-              |      MAYORIG_ {$$ = OP_MAYORIG;}
-              |      MENORIG_ {$$ = OP_MENORIG;}
+opRel         :      MAYOR_ {$$ = EMAY;}
+              |      MENOR_ {$$ = EMEN;}
+              |      MAYORIG_ {$$ = EMAYEQ;}
+              |      MENORIG_ {$$ = EMENEQ;}
               ;
 
-opAd          :      MAS_ {$$ = OP_MAS;}
-              |      MENOS_ {$$ = OP_MENOS;}
+opAd          :      MAS_ {$$ = ESUM;}
+              |      MENOS_ {$$ = EDIF;}
               ;
 
-opMul         :      POR_ {$$ = OP_POR;}
-              |      DIV_ {$$ = OP_DIV;}
+opMul         :      POR_ {$$ = EMULT;}
+              |      DIV_ {$$ = EDIVI;}
               ;
 
-opUna         :      MAS_ {$$ = OP_MAS;}
-              |      MENOS_ {$$ = OP_MENOS;}
-              |      NOT_  {$$ = OP_NOT;}
+opUna         :      MAS_ {$$ = ESUM;}
+              |      MENOS_ {$$ = EDIF;}
+              |      NOT_  {$$ = ESIG;}
               ;
 
 
