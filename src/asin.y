@@ -310,8 +310,8 @@ instIter      :      FOR_ PARENTESIS1_ expreOp PUNTOCOMA_
                
               ;
 
-expreOp       :      {$$ = T_VACIO;}
-              |      expre  {$$ = $1;}
+expreOp       :      {$$.tipo = T_VACIO;}
+              |      expre  {$$.tipo = $1.tipo;} /*FIX: Hay que ahcer $$.pos = $1.pos?*/
               ;
 
 expre         :      expreLogic  {$$.tipo = $1.tipo;} /*FIX: Hay que ahcer $$.pos = $1.pos?*/
@@ -463,7 +463,7 @@ expreSufi     :      const  /*QUE ES EXPRESUFI*/
                      $$.pos = creaVarTemp();
                      emite(EASIG, crArgEnt($1.pos), crArgNul(), crArgPos(niv, $$.pos));
                      }
-              |      PARENTESIS1_ expre PARENTESIS2_  {$$ = $2;}
+              |      PARENTESIS1_ expre PARENTESIS2_  {$$ = $2;} /*FIX: NO EST AIMPLEMENTADO*/
               |      ID_ 
                      { 
                      SIMB sim = obtTdS($1); 
