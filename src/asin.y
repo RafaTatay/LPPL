@@ -267,11 +267,11 @@ instSelec     :      IF_ PARENTESIS1_ expre PARENTESIS2_
                      {
                             $<ifelse>$.fin = creaLans(si); 
                             emite(GOTOS, crArgNul(),crArgNul(),crArgEnt(-1));
-                            completaLans($<ifelse>$.lf,crArgEtq(si));
+                            completaLans($<ifelse>5.lf,crArgEtq(si));
                      } 
                      ELSE_ inst
                      {
-                            completaLans($<ifelse>$.fin,crArgEtq(si));
+                            completaLans($<ifelse>7.fin,crArgEtq(si));
                      } 
               ;
 
@@ -301,11 +301,11 @@ instIter      :      FOR_ PARENTESIS1_ expreOp PUNTOCOMA_
                                    else if ($6.tipo != T_LOGICO) yyerror("La condicion del for debe ser de tipo logico. ");
                             } 
                             emite(GOTOS, crArgNul(),crArgNul(),crArgEnt($<forexpre>$.ini));
-                            completaLans($<ifelse>$.lf,crArgEtq(si));
+                            completaLans($<ifelse>9.lf,crArgEtq(si));
                      }
                      inst{
                             emite(GOTOS, crArgNul(),crArgNul(),crArgEnt($<forexpre>$.aux));
-                            completaLans($<ifelse>$.lf,crArgEtq(si));
+                            completaLans($<ifelse>9.lf,crArgEtq(si));
                      }
                
               ;
@@ -344,8 +344,7 @@ expre         :      expreLogic  {$$.tipo = $1.tipo; $$.pos = $1.pos;}
                                    }
                             }
                      
-                     emite(EMULT, crArgPos(niv, $3.pos), crArgEnt(TALLA_TIPO_SIMPLE) , crArgPos(niv, $3.pos));
-                     $$.pos = creaVarTemp();
+                     emite(EMULT, crArgPos(niv, $3.pos), crArgEnt(sim.t) , crArgPos(niv, $3.pos));
                      emite(EVA, crArgPos(sim.n,sim.d), crArgPos(niv,$3.pos),crArgPos(niv,$6.pos));
                      /*Añado esto porque en todas las asignaciones de expre tengo que hacer esto: a[b=2]=true o a[b[3]=2]=5(el b=2)*/
                      emite(EASIG, crArgPos(niv,$6.pos), crArgNul(),crArgPos(niv, $$.pos));
