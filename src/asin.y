@@ -36,10 +36,10 @@ extern int yylineno;
 /********/
 %token <cent> CTE_
 %token <ident> ID_
-%type <cent> tipoSimp listDecla decla declaFunc declaVarLocal declaVar listParamAct paramAct
+%type <cent> tipoSimp declaVarLocal declaVar listParamAct paramAct
 %type <cent> instEntSal   
 %type <cent> opMul opUna opRel opAd opIgual opLogic 
-%type <lista> paramForm listParamForm 
+%type <lista> paramForm listParamForm declaFunc decla listDecla
 %type <expresion> const expre expreLogic expreSufi expreMul
                   expreUna expreAd expreOp expreIgual expreRel
 %type <ifelse> instSelec
@@ -50,28 +50,40 @@ programa      :     {
 		              niv = 0;   /* Nivel de anidamiento "global" o "local" */
                             dvar = 0;  /* Desplazamiento en el Segmento de Variables */
                             cargaContexto(niv);
+
+                            //En ref guardamos la reserva de variables globales
+                            $<lista>$.ref=creaLans(si);
+                            emite(INCTOP, crArgNul(), crArgNul(), crArgEnt(-1));
+
+                            //En talla guardamos el salto al main
+                            $<lista>$.talla=creaLans(si);
+                            emite(GOTOS, crArgNul(), crArgNul(), crArgEtq(-1));
 		       }
                     listDecla
                     {
 		              if(verTdS)
 		                     mostrarTdS(); 
-                            if($2 == 0)
+                            if($2.ref == 0)
 		                     yyerror("No hay main en el programa");
-                            else if ($2 > 1)
+                            else if ($2.ref > 1)
                                    yyerror("El programa tiene más de un main");
+                            completaLans($<lista>1.ref, crArgEnt(dvar));
+                            completaLans($<lista>1.talla, crArgEtq($2.talla));
                               
 		       }
               ;
 
-listDecla     :     decla { $$ =$1; } 
+listDecla     :     decla { $$.ref =$1.ref; } 
               |     listDecla decla   
                      {
-		              $$ = $1 + $2;    
+		              $$.ref = $1.ref + $2.ref;    
+                            if($1.talla!=-1) $$.talla=$1.talla;
+                            else { $$.talla=$2.talla; } 
 		       }    
               ;
 
-decla         :      declaVar { $$ = 0; }
-              |      declaFunc {$$ = $1;}       
+decla         :      declaVar { $$.ref = 0; $$.talla = -1; }
+              |      declaFunc {$$.ref = $1.ref; $$.talla = $1.talla;}       
               ;
 
 declaVar      :      tipoSimp ID_ PUNTOCOMA_
@@ -142,9 +154,9 @@ declaFunc     :      tipoSimp ID_
                      bloque
                      {/* Mostrar la informacion de la funcion en la TdS */
                             if(strcmp($2, "main\0") == 0){   /* los dominios coinciden */
-                                   $$ = 1;
+                                   $$.ref = 1;
                             }
-                            else { $$ = 0;} 
+                            else { $$.ref = 0;} 
                             if(verTdS)
 		                     mostrarTdS();
                       /* Gestion del contexto y recuperar ‘‘dvar’’ */
