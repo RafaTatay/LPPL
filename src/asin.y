@@ -162,7 +162,7 @@ paramForm     :      {$$.ref = insTdD(-1, T_VACIO);    $$.talla = 0;}
 listParamForm :      tipoSimp ID_
                      {
                             $$.ref = insTdD(-1, $1);   
-                            $$.talla = TALLA_SEGENLACES + TALLA_TIPO_SIMPLE;
+                            $$.talla = TALLA_SEGENLACES + TALLA_TIPO_SIMPLE; /* El más a la derecha del todo */
                             if ( ! insTdS($2, PARAMETRO, $1, niv, -$$.talla, -1) )     /* Los parametros se ordenan en orden inverso */
                                    yyerror ("La función ya tiene un parámetro con el mismo identificador");
                             
@@ -311,10 +311,10 @@ instIter      :      FOR_ PARENTESIS1_ expreOp PUNTOCOMA_
               ;
 
 expreOp       :      {$$.tipo = T_VACIO;}
-              |      expre  {$$.tipo = $1.tipo;} /*FIX: Hay que ahcer $$.pos = $1.pos?*/
+              |      expre  {$$.tipo = $1.tipo;} /*Aqui no*/
               ;
 
-expre         :      expreLogic  {$$.tipo = $1.tipo;} /*FIX: Hay que ahcer $$.pos = $1.pos?*/
+expre         :      expreLogic  {$$.tipo = $1.tipo; $$.pos = $1.pos;} 
               |      ID_ ASIGNAR_ expre
                      {
                      SIMB sim = obtTdS($1);
@@ -343,12 +343,16 @@ expre         :      expreLogic  {$$.tipo = $1.tipo;} /*FIX: Hay que ahcer $$.po
                                           }
                                    }
                             }
-   /*FIX*/                  emite(EMULT, crArgPos(niv, $3.pos), crArgPos(niv, dim.telem) , crArgPos(niv, $3.pos));
+                     
+                     emite(EMULT, crArgPos(niv, $3.pos), crArgEnt(TALLA_TIPO_SIMPLE) , crArgPos(niv, $3.pos));
+                     $$.pos = creaVarTemp();
                      emite(EVA, crArgPos(sim.n,sim.d), crArgPos(niv,$3.pos),crArgPos(niv,$6.pos));
+                     /*Añado esto porque en todas las asignaciones de expre tengo que hacer esto: a[b=2]=true o a[b[3]=2]=5(el b=2)*/
+                     emite(EASIG, crArgPos(niv,$6.pos), crArgNul(),crArgPos(niv, $$.pos));
                      }
               ;
 
-expreLogic    :      expreIgual  {$$.tipo = $1.tipo;}
+expreLogic    :      expreIgual  {$$.tipo = $1.tipo; $$.pos = $1.pos;}
               |      expreLogic opLogic expreIgual
                      {
                      $$.tipo = T_ERROR;
@@ -368,7 +372,7 @@ expreLogic    :      expreIgual  {$$.tipo = $1.tipo;}
                      }
               ;
 
-expreIgual    :      expreRel  {$$.tipo = $1.tipo;}
+expreIgual    :      expreRel  {$$.tipo = $1.tipo; $$.pos = $1.pos;}
               |      expreIgual opIgual expreRel
                      {
                      $$.tipo = T_ERROR;
@@ -384,7 +388,7 @@ expreIgual    :      expreRel  {$$.tipo = $1.tipo;}
                      }
               ;
 
-expreRel      :      expreAd  {$$.tipo = $1.tipo;}
+expreRel      :      expreAd  {$$.tipo = $1.tipo; $$.pos = $1.pos;}
               |      expreRel opRel expreAd
                      {
                      $$.tipo = T_ERROR;
@@ -400,7 +404,7 @@ expreRel      :      expreAd  {$$.tipo = $1.tipo;}
                      }
               ;
 
-expreAd       :      expreMul  {$$.tipo = $1.tipo;}
+expreAd       :      expreMul  {$$.tipo = $1.tipo; $$.pos = $1.pos;}
               |      expreAd opAd expreMul
                      {
                      $$.tipo = T_ERROR;
@@ -414,7 +418,7 @@ expreAd       :      expreMul  {$$.tipo = $1.tipo;}
                      }
               ;
 
-expreMul      :      expreUna  {$$.tipo = $1.tipo;}
+expreMul      :      expreUna  {$$.tipo = $1.tipo; $$.pos = $1.pos;}
               |      expreMul opMul expreUna
                      {
                      $$.tipo = T_ERROR;
@@ -428,7 +432,7 @@ expreMul      :      expreUna  {$$.tipo = $1.tipo;}
                      }
               ;
 
-expreUna      :      expreSufi  {$$.tipo = $1.tipo;}
+expreUna      :      expreSufi  {$$.tipo = $1.tipo; $$.pos = $1.pos;}
               |      opUna expreUna
                      {
                      $$.tipo = T_ERROR;
@@ -463,7 +467,10 @@ expreSufi     :      const  /*QUE ES EXPRESUFI*/
                      $$.pos = creaVarTemp();
                      emite(EASIG, crArgEnt($1.pos), crArgNul(), crArgPos(niv, $$.pos));
                      }
-              |      PARENTESIS1_ expre PARENTESIS2_  {$$ = $2;} /*FIX: NO EST AIMPLEMENTADO*/
+              |      PARENTESIS1_ expre PARENTESIS2_  {
+                     $$.tipo = $2.tipo;
+                     $$.pos = $2.pos;
+                     } 
               |      ID_ 
                      { 
                      SIMB sim = obtTdS($1); 
@@ -477,20 +484,20 @@ expreSufi     :      const  /*QUE ES EXPRESUFI*/
                      { 
                      SIMB sim = obtTdS($1); 
                      $$.tipo = T_ERROR;
-		              if(sim.t == T_ERROR) {yyerror("Objeto no declarado");}
-		              else{
+                     if(sim.t == T_ERROR) {yyerror("Objeto no declarado");}
+                     else{
                      if(sim.t != T_ARRAY){
 		              yyerror("ID debe ser de tipo array");
 			}else{
 				if ($3.tipo != T_ENTERO ) {yyerror("Indice no entero");}
 				else {
 					DIM dim = obtTdA(sim.ref);
-					if($3 < 0 || $3 > dim.nelem){ /*FIX*/
-					       yyerror("Indice fuera de rango.");
-                     		}else{ $$.tipo = dim.telem;}
+					$$.tipo = dim.telem;
 				}
 		       }
-               /*FIX*/      emite(EMULT, crArgPos(niv, $3.pos), crArgPos(niv, $$.) , crArgPos(niv, $3.pos));
+                     
+                     emite(EMULT, crArgPos(niv, $3.pos), crArgEnt(TALLA_TIPO_SIMPLE) , crArgPos(niv, $3.pos));
+                     
                      $$.pos = creaVarTemp();
                      emite(EAV, crArgPos(sim.n,sim.d), crArgPos(niv,$3.pos),crArgPos(niv,$$.pos));
 	              }
