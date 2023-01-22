@@ -218,9 +218,9 @@ bloque        :      {
                      PUNTOCOMA_ LLAVE2_  
               ;
 
-declaVarLocal :      {$$ = T_VACIO;}
+declaVarLocal :      {$$ = T_VACIO;} //Dif
               |      declaVarLocal declaVar
-                     {$$ = $1 + $2;}
+                     {$$ = $1 + $2;} //Dif
               ;
 
 listInst      :
@@ -300,12 +300,12 @@ instIter      :      FOR_ PARENTESIS1_ expreOp PUNTOCOMA_
                                    } 
                                    else if ($6.tipo != T_LOGICO) yyerror("La condicion del for debe ser de tipo logico. ");
                             } 
-                            emite(GOTOS, crArgNul(),crArgNul(),crArgEnt($<forexpre>$.ini));
-                            completaLans($<ifelse>9.lf,crArgEtq(si));
+                            emite(GOTOS, crArgNul(),crArgNul(),crArgEnt($<forexpre>5.ini));
+                            completaLans($<forexpre>8.lv,crArgEtq(si));
                      }
                      inst{
-                            emite(GOTOS, crArgNul(),crArgNul(),crArgEnt($<forexpre>$.aux));
-                            completaLans($<ifelse>9.lf,crArgEtq(si));
+                            emite(GOTOS, crArgNul(),crArgNul(),crArgEnt($<forexpre>8.aux));
+                            completaLans($<forexpre>8.lf,crArgEtq(si));
                      }
                
               ;
@@ -326,6 +326,8 @@ expre         :      expreLogic  {$$.tipo = $1.tipo; $$.pos = $1.pos;}
                             else{ $$.tipo = $3.tipo;}
                             }
                      emite(EASIG, crArgPos(niv, $3.pos), crArgNul(), crArgPos(sim.n, sim.d));
+                     $$.pos = creaVarTemp();
+                     emite(EASIG, crArgPos(niv,$3.pos), crArgNul(),crArgPos(niv, $$.pos));
                      }
               |      ID_ CORCHETE1_ expre CORCHETE2_ ASIGNAR_ expre
                      {
@@ -344,7 +346,8 @@ expre         :      expreLogic  {$$.tipo = $1.tipo; $$.pos = $1.pos;}
                                    }
                             }
                      
-                     emite(EMULT, crArgPos(niv, $3.pos), crArgEnt(sim.t) , crArgPos(niv, $3.pos));
+                     emite(EMULT, crArgPos(niv, $3.pos), crArgEnt(TALLA_TIPO_SIMPLE) , crArgPos(niv, $3.pos));
+                     $$.pos = creaVarTemp();
                      emite(EVA, crArgPos(sim.n,sim.d), crArgPos(niv,$3.pos),crArgPos(niv,$6.pos));
                      /*Añado esto porque en todas las asignaciones de expre tengo que hacer esto: a[b=2]=true o a[b[3]=2]=5(el b=2)*/
                      emite(EASIG, crArgPos(niv,$6.pos), crArgNul(),crArgPos(niv, $$.pos));
@@ -361,9 +364,9 @@ expreLogic    :      expreIgual  {$$.tipo = $1.tipo; $$.pos = $1.pos;}
                             else{ $$.tipo = T_LOGICO;}
                             } 
                      $$.pos = creaVarTemp();
-                     if ($2 == EMULT){   /* es un AND */
+                     if ($2 == EMULT){   /* es un AND */ //Dif
                             emite(EMULT, crArgPos(niv, $1.pos), crArgPos(niv, $3.pos), crArgPos(niv, $$.pos));
-                     } else{    /* es un OR */
+                     } else if ($2 == ESUM){    /* es un OR */ //Dif
                             emite(ESUM, crArgPos(niv, $1.pos), crArgPos(niv, $3.pos), crArgPos(niv, $$.pos));
                             emite(EMENEQ, crArgPos(niv, $$.pos), crArgEnt(1), crArgEtq(si + 2));
                             emite(EASIG, crArgEnt(1), crArgNul(), crArgPos(niv, $$.pos));
@@ -452,9 +455,15 @@ expreUna      :      expreSufi  {$$.tipo = $1.tipo; $$.pos = $1.pos;}
                      }
                      $$.pos = creaVarTemp();
                      if ($1 == ESIG) { /*NOT*/
+                            $$.pos = creaVarTemp();
                             emite(EDIF, crArgEnt(1), crArgPos(niv, $2.pos), crArgPos(niv, $$.pos));    
-                     } else { /*MAS y MENOS*/
-                            emite($1, crArgEnt(0), crArgPos(niv, $2.pos), crArgPos(niv, $$.pos));
+                     }
+                     else if( $1 == EDIF){
+                            $$.pos = creaVarTemp();
+                            emite(ESIG, crArgPos(niv, $2.pos), crArgNul(), crArgPos(niv, $$.pos));
+                     } 
+                     else { 
+                            $$.pos = $2.pos;
                      } 
                      } 
               ;
@@ -496,20 +505,23 @@ expreSufi     :      const  /*QUE ES EXPRESUFI*/
 		       }
                      
                      emite(EMULT, crArgPos(niv, $3.pos), crArgEnt(TALLA_TIPO_SIMPLE) , crArgPos(niv, $3.pos));
-                     
                      $$.pos = creaVarTemp();
                      emite(EAV, crArgPos(sim.n,sim.d), crArgPos(niv,$3.pos),crArgPos(niv,$$.pos));
 	              }
                    
                      } 
-              |      ID_ PARENTESIS1_ paramAct PARENTESIS2_  
+              |      ID_  
+                     {
+                            emite(INCTOP, crArgNul(), crArgNul(), crArgEnt(TALLA_TIPO_SIMPLE));
+                     }
+                     PARENTESIS1_ paramAct PARENTESIS2_  
                      { 
+                     
                      SIMB sim = obtTdS($1); 
+                     INF inf = obtTdD(sim.ref);
                      $$.tipo = T_ERROR;
 		       if(sim.t == T_ERROR) {yyerror("Objeto no declarado");}
-		       else{
-                            INF inf = obtTdD(sim.ref);
-                            
+		       else{             
 			       if (inf.tipo == T_ERROR) { 
 				       yyerror("No se encuentra la función"); 
 			       } else { 
@@ -523,7 +535,23 @@ expreSufi     :      const  /*QUE ES EXPRESUFI*/
                                    
                                     
 			       }
+                     }
+                     /*
+                     SIMB sim = obtTdS($1);
+                     $$.tipo=T_ERROR;
+                     if (sim.t == T_ERROR) yyerror("Variable no declarada. "); 
+                     
+                     INF inf = obtTdD(sim.ref);
+                     if (inf.tipo == T_ERROR) yyerror("La variable debe de ser una funcion. ");
+                     else if (!(cmpDom(sim.ref, $4))) yyerror("En el dominio de los parametros actuales");
+                     else { 
+                     $$.tipo=inf.tipo; 
                      } 
+                     */
+                     emite(CALL, crArgNul(), crArgNul(), crArgEtq(sim.d));
+                     emite(DECTOP, crArgNul(), crArgNul(), crArgEnt(inf.tsp));
+                     $$.pos = creaVarTemp();
+                     emite(EPOP, crArgNul(), crArgNul(), crArgPos(niv, $$.pos));
                      } 
               ;
 
@@ -533,7 +561,7 @@ paramAct      :     {$$ = insTdD(-1,T_VACIO);}
 
 listParamAct  :      expre 
               {
-                     $$ = insTdD(-1,$1.tipo);
+                     $$ = insTdD(-1,$1.tipo); //Creo la referencia del dominio 
                      emite(EPUSH,crArgNul(),crArgNul(),crArgPos(niv, $1.pos));
               }
               |      expre 
@@ -541,7 +569,7 @@ listParamAct  :      expre
                      emite(EPUSH,crArgNul(),crArgNul(),crArgPos(niv, $1.pos));
               }
               COMA_ listParamAct
-                     {$$ = insTdD($4,$1.tipo);}
+                     {$$ = insTdD($4,$1.tipo);} //Aqui la uso  
               ;
 
 opLogic       :      AND_ {$$ = EMULT;}
