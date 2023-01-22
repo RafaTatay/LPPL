@@ -46,16 +46,15 @@ extern int yylineno;
 %type <forexpre> instIter
 %%
 programa      :     {       
-                            si = 0; /* Se refiere a la Siguiente Instrucción*/
-		              niv = 0;   /* Nivel de anidamiento "global" o "local" */
+                            niv = 0;   /* Nivel de anidamiento "global" o "local" */
                             dvar = 0;  /* Desplazamiento en el Segmento de Variables */
                             cargaContexto(niv);
+                            si = 0; /* Se refiere a la Siguiente Instrucción*/
+		             
 
-                            //En ref guardamos la reserva de variables globales
-                            $<lista>$.ref=creaLans(si);
+                            $<lista>$.ref=creaLans(si);   //var globales
                             emite(INCTOP, crArgNul(), crArgNul(), crArgEnt(-1));
 
-                            //En talla guardamos el salto al main
                             $<lista>$.talla=creaLans(si);
                             emite(GOTOS, crArgNul(), crArgNul(), crArgEtq(-1));
 		       }
@@ -73,7 +72,7 @@ programa      :     {
 		       }
               ;
 
-listDecla     :     decla { $$.ref =$1.ref; } 
+listDecla     :     decla { $$.ref =$1.ref; $$.talla=$1.talla;} 
               |     listDecla decla   
                      {
 		              $$.ref = $1.ref + $2.ref;    
@@ -149,6 +148,10 @@ declaFunc     :      tipoSimp ID_
                             /* Al poner si, nos guardamos la linea de codigo en 
                                                  la que empieza la función - Se usa en los CALL*/
 		                     yyerror("Ya existe una funcion con el mismo identificador.");
+
+                            if (strcmp($2,"main\0")==0){ $<cent>$=si; } 
+                            else{$<cent>$=-1;}
+                            
                              
                      }
                      bloque
@@ -163,6 +166,7 @@ declaFunc     :      tipoSimp ID_
                             descargaContexto(niv); 
 			       niv--; 
 			       dvar = $<cent>3;
+                            $$.talla=$<cent>7;
 			}
               ;
               
@@ -224,7 +228,7 @@ bloque        :      {
                             /****** Descargar los enlaces de control */
                             emite(FPPOP, crArgNul(), crArgNul(), crArgNul() );
                             /****** Emitir FIN si es ‘‘main’’ y RETURN si no es */
-                            if (strcmp(inf.nom,"main") == 0) { emite(FIN, crArgNul(), crArgNul(), crArgNul()); 
+                            if (strcmp(inf.nom,"main\0") == 0) { emite(FIN, crArgNul(), crArgNul(), crArgNul()); 
                             }else { emite(RET, crArgNul(), crArgNul(), crArgNul()); } 
                      }
                      PUNTOCOMA_ LLAVE2_  
@@ -390,7 +394,7 @@ expreIgual    :      expreRel  {$$.tipo = $1.tipo; $$.pos = $1.pos;}
               |      expreIgual opIgual expreRel
                      {
                      $$.tipo = T_ERROR;
-                     if($1.tipo != T_ERROR && $3.tipo != T_ERROR){
+                     if($1.tipo != T_ERROR && $3.tipo != T_ERROR && $1.tipo != T_ENTERO){
                             if($1.tipo != $3.tipo){ yyerror("Error en la expresion de igualdad");}
                             else if($1.tipo != T_LOGICO){ yyerror("La expresion de igualdad debe ser booleana");}
                             else{ $$.tipo = T_LOGICO;}
@@ -458,10 +462,11 @@ expreUna      :      expreSufi  {$$.tipo = $1.tipo; $$.pos = $1.pos;}
                                           $$.tipo = T_ENTERO;
                                    }      
                             }else if($2.tipo == T_LOGICO){
-                                   if ($1 == EDIF) {
-                                          $$.tipo = T_LOGICO;
-                                   } else {
+                                   if ($1==ESUM || $1 == EDIF) {   //si es + o -, no puede ser logico
                                           yyerror("Operacion entera invalidada en expresion logica");
+                                          
+                                   } else {
+                                          $$.tipo = T_LOGICO;
                                    }
                             } 
                      }
@@ -536,30 +541,13 @@ expreSufi     :      const  /*QUE ES EXPRESUFI*/
 		       else{             
 			       if (inf.tipo == T_ERROR) { 
 				       yyerror("No se encuentra la función"); 
-			       } else { 
+			       } else if (!(cmpDom(sim.ref, $4))) {
+                                   yyerror("En el dominio de los parametros actuales");
+                            } else { 
                                    $$.tipo = inf.tipo;
-                                   if (sim.t != T_ARRAY){ 
-                                          INF inf2 = obtTdD(-1);    //la f actual
-                                          if (inf2.tipo != inf.tipo){
-                                                 yyerror("En el dominio de los parametros actuales");
-                                          }
-                                   }
-                                   
-                                    
-			       }
+                            }
                      }
-                     /*
-                     SIMB sim = obtTdS($1);
-                     $$.tipo=T_ERROR;
-                     if (sim.t == T_ERROR) yyerror("Variable no declarada. "); 
                      
-                     INF inf = obtTdD(sim.ref);
-                     if (inf.tipo == T_ERROR) yyerror("La variable debe de ser una funcion. ");
-                     else if (!(cmpDom(sim.ref, $4))) yyerror("En el dominio de los parametros actuales");
-                     else { 
-                     $$.tipo=inf.tipo; 
-                     } 
-                     */
                      emite(CALL, crArgNul(), crArgNul(), crArgEtq(sim.d));
                      emite(DECTOP, crArgNul(), crArgNul(), crArgEnt(inf.tsp));
                      $$.pos = creaVarTemp();
