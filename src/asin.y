@@ -6,6 +6,7 @@
 #include <string.h>
 #include "header.h"
 #include "libtds.h"
+#include "libgci.h"
 #include "asin.h"
 
 extern int yylineno;
@@ -37,7 +38,6 @@ extern int yylineno;
 %token <ident> ID_
 %type <cent> tipoSimp listDecla decla declaFunc declaVarLocal declaVar listParamAct paramAct
 %type <cent> instEntSal   
-%type <cent>     
 %type <cent> opMul opUna opRel opAd opIgual opLogic 
 %type <lista> paramForm listParamForm 
 %type <expresion> const expre expreLogic expreSufi expreMul
@@ -63,7 +63,7 @@ programa      :     {
 		       }
               ;
 
-listDecla     :     decla
+listDecla     :     decla { $$ =$1; } 
               |     listDecla decla   
                      {
 		              $$ = $1 + $2;    
@@ -71,7 +71,7 @@ listDecla     :     decla
               ;
 
 decla         :      declaVar { $$ = 0; }
-              |      declaFunc       
+              |      declaFunc {$$ = $1;}       
               ;
 
 declaVar      :      tipoSimp ID_ PUNTOCOMA_
@@ -110,7 +110,7 @@ declaVar      :      tipoSimp ID_ PUNTOCOMA_
 
 const         :      CTE_
                      /* Para poder acceder a const cuando se hace un crArgEnt, vamos a crear una 
-                     estructura para guardar el tipo(T_ENTERO) y el valor ($$.pos = $1)
+                     estructura para guardar el tipo(T_ENTERO) y el valor ($$.pos = $1) */
                      {
                       $$.tipo = T_ENTERO; /*Antes era solo $$ = T_ENTERO-> añadimos expresion a header.h y modificamos type de cent en union*/
                       $$.pos = $1;
@@ -184,8 +184,10 @@ bloque        :      {
                      
                      /*********** Reservar de espacio para variables locales y temporales */
                      /*Para hacer los que en las transpas ahcen con D.d = creaLans(Omega) hacemos*/
-                     $<cent>$ = creaLans(si); /* D.d = CreaLans(Omega)
-                     emite(INCTOP, crArgNul(), crArgNul(), crArgEnt(-1)); /*-1 correpsonde a el circulo con x que usabamos en teoria */
+                     $<cent>$ = creaLans(si); /* D.d = CreaLans(Omega)*/
+
+                     /*-1 correpsonde a el circulo con x que usabamos en teoria*/
+                     emite(INCTOP, crArgNul(), crArgNul(), crArgEnt(-1)); 
                      
                      }  
                      
@@ -193,29 +195,27 @@ bloque        :      {
                      {
                             INF inf = obtTdD(-1);
 			       if (inf.tipo != T_ERROR) {
-				       if (inf.tipo != $5) {
+				       if (inf.tipo != $6.tipo) {
 					       yyerror("Error de tipos en el return"); 
 				       }                                       
 			       }
                             else if( inf.tipo == T_ERROR){
                                    yyerror("En la declaracion de la funcion");
-                            } 
+                            }
+                            /****** Completar la reserva para las variables locales y temporales */
+                            completaLans($<cent>1, crArgEnt(dvar));
+                            /****** Guardar el valor de retorno */
+                            int dret = TALLA_SEGENLACES + TALLA_TIPO_SIMPLE + inf.tsp;
+                            emite(EASIG, crArgPos(niv, $6.pos), crArgNul(), crArgPos(niv, -dret)); /* Para obtener el valor del return*/
+                            /****** Liberar el segmento de variables locales y temporales */
+                            emite(TOPFP, crArgNul(), crArgNul(), crArgNul() );
+                            /****** Descargar los enlaces de control */
+                            emite(FPPOP, crArgNul(), crArgNul(), crArgNul() );
+                            /****** Emitir FIN si es ‘‘main’’ y RETURN si no es */
+                            if (strcmp(inf.nom,"main") == 0) { emite(FIN, crArgNul(), crArgNul(), crArgNul()); 
+                            }else { emite(RET, crArgNul(), crArgNul(), crArgNul()); } 
                      }
-                     PUNTOCOMA_ LLAVE2_ 
-                     {
-                     /****** Completar la reserva para las variables locales y temporales */
-                     completaLans($<cent>1, crArgEnt(dvar));
-                     /****** Guardar el valor de retorno */
-                     int dret = TALLA_SEGENLACES + TALLA_TIPO_SIMPLE + inf.tsp;
-                     emite(EASIG, crArgPos(niv, $6.pos), crArgNul(), crArgPos(niv, -dret)); /* Para obtener el valor del return*/
-                     /****** Liberar el segmento de variables locales y temporales */
-                     emite(TOPFP, crArgNul(), crArgNul(), crArgNul() );
-                     /****** Descargar los enlaces de control */
-                     emite(FPPOP, crArgNul(), crArgNul(), crArgNul() );
-                     /****** Emitir FIN si es ‘‘main’’ y RETURN si no es */
-                     if (strcmp(inf.nom,"main") == 0) { emite(FIN, crArgNul(), crArgNul(), crArgNul()); 
-                     }else { emite(RET, crArgNul(), crArgNul(), crArgNul()); }
-                     } 
+                     PUNTOCOMA_ LLAVE2_  
               ;
 
 declaVarLocal :      {$$ = T_VACIO;}
@@ -247,25 +247,25 @@ instEntSal    :      READ_ PARENTESIS1_ ID_ PARENTESIS2_ PUNTOCOMA_
                      }
               |      PRINT_ PARENTESIS1_ expre PARENTESIS2_ PUNTOCOMA_
                      {
-                            if($3 != T_ENTERO){ yyerror("La expresion del 'print' debe ser 'entera'");}
+                            if($3.tipo != T_ENTERO){ yyerror("La expresion del 'print' debe ser 'entera'");}
                             /*Ahora mismo expre solo guarda el tipo, habrá que hacer con expre y todas las expre lo mismo que con const*/
                             /*Así tednrá tipo y posicion*/
-                            emite(EWRITE, crArgNul(), crArgNul(),crArgPos(niv, $3) ); /*Cambiar expre por expre.pos*/
+                            emite(EWRITE, crArgNul(), crArgNul(),crArgPos(niv, $3.pos) ); /*Cambiar expre por expre.pos*/
                             /*NOTA: CAMBIA TODOS LOS USOS DE EXPRE CON $i por $i.tipo al meterlo como const*/
                      }
               ;
 
 instSelec     :      IF_ PARENTESIS1_ expre PARENTESIS2_
                      {
-                            if($3 != T_ERROR && $3.tipo != T_LOGICO) { yyerror("La expresion del `if' debe ser 'logico'");}
+                            if($3.tipo != T_ERROR && $3.tipo != T_LOGICO) { yyerror("La expresion del `if' debe ser 'logico'");}
                             /*USamos $<ifelse>$.lf y no $$.lf porque el instSelec (Estrucutra IF)*/
                             /*aun no se ha termiando de procesar, sol opuedo hacer $$.lf si estuviese al final*/
-                            $<ifelse>$.lf = creaLans(si));
-                            emite(EIGUAL, expresion.pos, crArgEnt(0), crArgEnt(-1));
+                            $<ifelse>$.lf = creaLans(si);
+                            emite(EIGUAL, crArgPos(niv,$3.pos), crArgEnt(0), crArgEnt(-1));
                      }
                      inst 
                      {
-                            $<ifelse>$.fin = creaLans(si)); 
+                            $<ifelse>$.fin = creaLans(si); 
                             emite(GOTOS, crArgNul(),crArgNul(),crArgEnt(-1));
                             completaLans($<ifelse>$.lf,crArgEtq(si));
                      } 
@@ -283,7 +283,7 @@ instIter      :      FOR_ PARENTESIS1_ expreOp PUNTOCOMA_
                      expre PUNTOCOMA_ 
                      {
                             $<forexpre>$.lv = creaLans(si); 
-                            emite(EIGUAL, expresion.pos, crArgEnt(1), crArgEnt(-1));
+                            emite(EIGUAL, crArgPos(niv,$6.pos), crArgEnt(1), crArgEnt(-1));
                             $<forexpre>$.lf = creaLans(si);
                             emite(GOTOS, crArgNul(),crArgNul(),crArgEnt(-1));
                             $<forexpre>$.aux = si;
@@ -291,17 +291,17 @@ instIter      :      FOR_ PARENTESIS1_ expreOp PUNTOCOMA_
                      expreOp PARENTESIS2_ 
                      {
                             
-                            if ($3 != T_ERROR && $6 != T_ERROR && $9 != T_ERROR){
-                                   if ($3 != T_VACIO && $3 != T_ENTERO && $3 != T_LOGICO) {
+                            if ($3.tipo != T_ERROR && $6.tipo != T_ERROR && $9.tipo != T_ERROR){
+                                   if ($3.tipo != T_VACIO && $3.tipo != T_ENTERO && $3.tipo != T_LOGICO) {
                                           yyerror("Las expresiones opcionales han de ser de tipo simple. ");
                                    }
-                                   else if ($9 != T_VACIO && $9 != T_ENTERO && $9 != T_LOGICO) {
+                                   else if ($9.tipo != T_VACIO && $9.tipo != T_ENTERO && $9.tipo != T_LOGICO) {
                                           yyerror("Las expresiones opcionales han de ser de tipo simple. ");
                                    } 
-                                   else if ($6!=T_LOGICO) yyerror("La condicion del for debe ser de tipo logico. ");
+                                   else if ($6.tipo != T_LOGICO) yyerror("La condicion del for debe ser de tipo logico. ");
                             } 
                             emite(GOTOS, crArgNul(),crArgNul(),crArgEnt($<forexpre>$.ini));
-                            completaLans($<ifelse>$.lv,crArgEtq(si));
+                            completaLans($<ifelse>$.lf,crArgEtq(si));
                      }
                      inst{
                             emite(GOTOS, crArgNul(),crArgNul(),crArgEnt($<forexpre>$.aux));
@@ -319,10 +319,10 @@ expre         :      expreLogic  {$$.tipo = $1.tipo; $$.pos = $1.pos;}
                      {
                      SIMB sim = obtTdS($1);
                      $$.tipo = T_ERROR;
-                     if ($3.,tipo != T_ERROR){
+                     if ($3.tipo != T_ERROR){
                             if(sim.t == T_ERROR){ yyerror("Objeto no declarado");}
                             else if (sim.t == T_ARRAY){ yyerror("La variable debe ser de tipo array");}
-                            else if (sim.t != $3){yyerror("En la asignacion a una variable simple");}
+                            else if (sim.t != $3.tipo){yyerror("En la asignacion a una variable simple");}
                             else{ $$.tipo = $3.tipo;}
                             }
                      emite(EASIG, crArgPos(niv, $3.pos), crArgNul(), crArgPos(sim.n, sim.d));
@@ -534,7 +534,7 @@ paramAct      :     {$$ = insTdD(-1,T_VACIO);}
 
 listParamAct  :      expre 
               {
-                     $$ = insTdD(-1,$1);
+                     $$ = insTdD(-1,$1.tipo);
                      emite(EPUSH,crArgNul(),crArgNul(),crArgPos(niv, $1.pos));
               }
               |      expre 
@@ -542,7 +542,7 @@ listParamAct  :      expre
                      emite(EPUSH,crArgNul(),crArgNul(),crArgPos(niv, $1.pos));
               }
               COMA_ listParamAct
-                     {$$ = insTdD($3,$1);}
+                     {$$ = insTdD($4,$1.tipo);}
               ;
 
 opLogic       :      AND_ {$$ = EMULT;}
