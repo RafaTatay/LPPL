@@ -90,14 +90,16 @@ extern int yydebug;
 #if ! defined YYSTYPE && ! defined YYSTYPE_IS_DECLARED
 union YYSTYPE
 {
-#line 14 "src/asin.y"
+#line 15 "src/asin.y"
 
   int   cent;  /* Para el terminal "cte" entera: creo un atr que es un entero             */
   char *ident; /* Nombre del identificador */
   Lista lista;
+  Expresion expresion; /*Para guardar tipo y posicion de simbolos no terminales*/
+  Ifelse ifelse; /*Para el ifelse ahcerlo igual que en las transparencias*/
+  Forexpre forexpre; /*Para hace rel for igual que en las transparencias*/
 
-
-#line 101 "asin.h"
+#line 103 "asin.h"
 
 };
 typedef union YYSTYPE YYSTYPE;
